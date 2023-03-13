@@ -1,0 +1,100 @@
+import requests
+from common.yaml_tool import read_config_file
+from common.yaml_tool import write_extract_file
+from common.yaml_tool import read_extract_file
+import jsonpath
+
+
+class RequestsTool:  # 新建一个类
+
+    session = requests.session()
+
+    def __init__(self, base, ceshi_url):
+        self.base_url = read_config_file(base, ceshi_url)
+        # 想要获取基础路径，就直接去读取他，base, ceshi_url不能写死，要用变量接受
+
+    # 规范功能测试yaml测试用例文件的写法
+    def analysis_yaml(self, caseinfo):  # 用analysis_yml方法，来分析yml文件；传入caseinfo
+        global return_data
+        caseinfo_keys = dict(caseinfo).keys()  # 将caseinfo转换成字典模式，获得他所有的key
+        # 第一条规则：必须包含四个一级关键字
+        if 'name' in caseinfo_keys and 'base_url' in caseinfo_keys and 'request' in caseinfo_keys and 'validate' \
+                in caseinfo_keys:  # 如果name base_url request validate 在caseinfo_keys里面
+            request_keys = dict(caseinfo['request']).keys()  # 将request转换成字典(没有keys()这个提示才需要转换)，取得caseinfo里面的request的键
+            if 'method' in request_keys and 'url' in request_keys:
+                # 参数 请求头 文件上传都不能被约束（不能写死）
+                print(caseinfo['request'])  # request下的值
+                print(caseinfo['request']['method'])
+                print(caseinfo['request']['url'])
+                # 定义变量
+                method = caseinfo['request']['method']
+                del caseinfo['request']['method']  # 取完值就删除方法
+                url = caseinfo['request']['url']
+                del caseinfo['request']['url']  # 取完值就删除地址
+                headers = None
+                if jsonpath.jsonpath(caseinfo, "$..headers"):
+                    # 通过jsonpath去取值；jsonpath.jsonpath(值,表达式)  这个表达式使用$来取值，看yml文件中headers的层级在哪里
+                    headers = caseinfo['request']['headers']  # 将caseinfo里的headers 赋给headers
+                    del caseinfo['request']['headers']  # 删除将caseinfo里的headers
+
+                # files = None
+                # if jsonpath.jsonpath(caseinfo, "$..files"):  # 通过jsonpath去取值；jsonpath.jsonpath(值,表达式)
+                #     files = caseinfo['request']['files']
+                #     for key, value in dict(files).items():
+                #         files[key] = open(value, 'rb')
+                #     del caseinfo['request']['files']
+
+                    # res = self.send_request(method=caseinfo['request'].pop('method'),
+                    #                         url=caseinfo['request'].pop('url'),
+                    #                         headers=headers,
+                    #                         # files=files,
+                    #                         **caseinfo['request'])      # 另一种方式
+
+                    # 我们应该把method url headers files这四个数据从caseinfo['request']去掉之后，把剩下的值传给**kwargs
+                    data=caseinfo['request']
+                    if(url!="/home/login"):
+                        #如果不是登录接口需要读取上一个登录接口的token信息到header里面
+                        headers["token"]=read_extract_file("access_token")
+                    response = self.send_request(method=method, url=url, headers=headers,  **data)
+                    print(response.text)
+                    return_data = response.json()    # 前提返回格式是json
+                    response_text= response.text     # 正则提取返回的是文本格式
+                    print("returndata="+str(return_data))
+                # 提取接口关联的变量 既要支持正则 又要支持json
+                # if jsonpath.jsonpath(caseinfo, '$.extract'):
+                if 'extract' in caseinfo_keys:    # 两种判断 'extract' 在不在caseinfo里面的语句
+                    for key, value in dict(caseinfo['extract']).items():   # key, value在dict(caseinfo['extract']) 进行遍历，
+                        # 单独遍历出key值和value的值  for key,value in dict.items () 遍历字典的键值对
+                        if '(.*?)' in value or '(.*?)' in value:    # 正则提取
+                            zhengze_value = re.search(value, str(response_text))   # re.serch(表达式，字符串)这个方法去查找和匹配  value 是一个变量
+                            print(zhengze_value)
+                            if zhengze_value:      # 如果zhengze_value不为空，组装成字典写如yml文件中
+                                extract_data = {key: zhengze_value.group(1)}
+                                write_extract_file(extract_data)
+                        else:    # json提取 ，  如果是json提取，则将取得的值['data'][value]组合成字典写如yml文件中
+                            extract_data = {key: return_data['data'][value]}
+                            # 因为token是封装在data里面的，token不是和cod/msg同级，所以需要先取出来data再去引token；所以要通过['data']来调出value是变量所以不需要加上''
+                            write_extract_file(extract_data)
+                    pass
+
+            else:
+                print("在request一级关键字下必须包括两个二级关键字：method url")
+        else:
+            print("必须包含的四个一级关键字  name base_url request validate")
+
+    # 统一发送请求的方法
+    def send_request(self, method, url, **kwargs):
+        # 处理method  都转为小写
+        self.last_method = str(method).lower()
+        # 处理基础路径
+        self.base_url = self.base_url + url  # 基础路径 +用例传来的url路径
+        # 新建一个发送请求的方法/ 请求头，参数用可变字典长度接受**kwargs
+        res = RequestsTool.session.request(method=self.last_method, url=self.base_url, **kwargs)
+
+        # print("test")
+        return res
+
+#   if __name__ == '__main__':
+#     dic = {'method': 'POST', 'url': '/home/login'}
+#     print(dic.pop('method'))    # 使用pop方法 移除method  / 或者使用 del dic['method']的方法删除
+#     print(dic)

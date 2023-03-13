@@ -1,0 +1,28 @@
+    name: 获取token
+    base_url: http://47.242.107.138:9090
+    request:
+        headers:
+            Content-Type: application/json
+            Postman-Token: fafc1c53-8cec-4ff4-af4a-1091998a7035
+            User-Agent: PostmanRuntime/7.29.2
+        json:
+            email: 100@test.com
+            password: '111111'
+            systemName: ios
+        method: POST
+        url: /home/login
+    extract:
+        access_token: token
+    validate:
+    -   eq:
+        - status_code
+        - 200
+    -   eq:
+        - headers.Content-Type
+        - application/json
+    -   eq:
+        - content.code
+        - 200
+    -   eq:
+        - content.msg
+        - 操作成功!

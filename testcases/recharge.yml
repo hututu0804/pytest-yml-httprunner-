@@ -1,0 +1,25 @@
+    name: 委托量化接口
+    base_url: http://47.242.107.138:9090
+    request:
+        headers:
+            Content-Type: application/json
+            Postman-Token: c4b7a3a9-91ad-4502-8b1a-47204617b1d3
+            User-Agent: PostmanRuntime/7.29.2
+            token: $access_token
+        json:
+            amount: 100
+        method: POST
+        url: /trusteeship/recharge
+    validate:
+    -   eq:
+        - status_code
+        - 200
+    -   eq:
+        - headers.Content-Type
+        - application/json
+    -   eq:
+        - content.code
+        - 200
+    -   eq:
+        - content.msg
+        - 操作成功!
